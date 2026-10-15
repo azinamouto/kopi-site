@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const box = surface.getBoundingClientRect();
         const x = (event.clientX - box.left) / box.width - .5;
         const y = (event.clientY - box.top) / box.height - .5;
+        surface.style.setProperty('--highlight-x', `${(x + .5) * 100}%`);
+        surface.style.setProperty('--highlight-y', `${(y + .5) * 100}%`);
         surface.style.setProperty('--tilt-x', `${-y * 3}deg`);
         surface.style.setProperty('--tilt-y', `${x * 3}deg`);
         surface.style.setProperty('--parallax-x', `${x * 7}px`);
@@ -19,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {passive:true});
     surface.addEventListener('pointerleave', () => {
       cancelAnimationFrame(frame);
-      ['--tilt-x','--tilt-y','--parallax-x','--parallax-y'].forEach(key => surface.style.removeProperty(key));
+      ['--tilt-x','--tilt-y','--parallax-x','--parallax-y','--highlight-x','--highlight-y'].forEach(key => surface.style.removeProperty(key));
     });
   });
   if ('IntersectionObserver' in window) {

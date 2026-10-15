@@ -725,7 +725,7 @@ function initCheckoutAndCartSystem() {
             button.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Added';
             clearTimeout(button.addedTimer);
             button.addedTimer = setTimeout(() => {
-                button.innerHTML = originalLabel;
+                if (!button.disabled) button.innerHTML = originalLabel;
                 button.classList.remove('just-added');
             }, 1400);
             showToast(`Added ${item.qty}× ${item.title} to cart!`);
@@ -1216,6 +1216,7 @@ function initHeartFavorites() {
         heart.addEventListener("click", (e) => {
             e.stopPropagation();
             heart.classList.toggle("active");
+            heart.setAttribute("aria-pressed", String(heart.classList.contains("active")));
             const icon = heart.querySelector("i");
             if (icon) {
                 if (heart.classList.contains("active")) {
@@ -1355,7 +1356,7 @@ async function initLiveMenuSync() {
                         card.style.opacity = "1";
                         if (addBtn) {
                             addBtn.disabled = false;
-                            addBtn.innerHTML = `<i class="fa-solid fa-plus"></i> Add`;
+                            addBtn.innerHTML = `<i class="fa-solid fa-plus" aria-hidden="true"></i> Add to Cart`;
                         }
                         if (buyBtn) buyBtn.disabled = false;
                     }
