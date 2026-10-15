@@ -16,6 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (open) {
         focusHistory.set(dialog, document.activeElement);
         (focusable(dialog)[0] || dialog).focus();
+        // Retry after visibility transitions, without stealing focus from the user.
+        setTimeout(() => {
+          if (dialog.classList.contains('open') && !dialog.contains(document.activeElement)
+              && (document.activeElement === document.body || document.activeElement === focusHistory.get(dialog))) {
+            (focusable(dialog)[0] || dialog).focus();
+          }
+        }, 420);
       } else {
         const previous = focusHistory.get(dialog);
         if (previous?.isConnected) previous.focus();

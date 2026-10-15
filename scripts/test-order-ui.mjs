@@ -4,7 +4,8 @@ import vm from 'node:vm';
 
 class Element {
   value = '';
-  style = {};
+  style = { setProperty(name, value) { this[name] = String(value); } };
+  dataset = {};
   children = [];
   handlers = {};
   attributes = {};
@@ -31,9 +32,9 @@ function harness() {
     querySelectorAll: () => [],
     addEventListener(name, handler) { this.handlers[name] = handler; },
   };
-  const context = vm.createContext({ document, console, URLSearchParams,
+  const context = vm.createContext({ document, console, URLSearchParams, navigator: { onLine:true },
     setInterval() {}, clearInterval() {}, setTimeout() {}, clearTimeout() {},
-    window: { location: { search: '?id=1', pathname: '/order-status.html' }, history: { replaceState() {} } },
+    window: { addEventListener() {}, matchMedia: () => ({ matches:false }), location: { search: '?id=1', pathname: '/order-status.html' }, history: { replaceState() {} } },
   });
   return { document, context, get: id => document.getElementById(id) };
 }
@@ -96,6 +97,8 @@ for (const mode of ['unsupported', 'denied', 'granted', 'constructor-fails']) {
   await h.document.handlers.DOMContentLoaded();
   const region = h.document.body.children[0];
   assert.equal(region.children.length, 0, 'Initial load is silent');
+  assert.equal(h.document.body.dataset.view, 'loaded');
+  assert.equal(h.get('timelineProgressBar').style['--progress'], '0');
   order.status = 'CONFIRMED';
   await listeners['poll:tick']();
   assert.equal(region.children.length, 1, 'First poll detects changes from initial load');
@@ -113,6 +116,8 @@ for (const mode of ['unsupported', 'denied', 'granted', 'constructor-fails']) {
   pendingFetch = null;
   assert.equal(region.children.length, 2, 'Old poll cannot undo a realtime update');
   assert.equal(chimes.length, 2);
+  assert.equal(h.document.body.dataset.orderStatus, 'READY');
+  assert.equal(h.get('timelineProgressBar').style['--progress'], '75');
   assert.equal(nativeCount, mode === 'granted' ? 2 : 0);
   region.children[0].children[2].handlers.click();
   assert.equal(region.children.length, 1, 'Pop-ups can be dismissed');
@@ -123,5 +128,16 @@ for (const mode of ['unsupported', 'denied', 'granted', 'constructor-fails']) {
   order.status = 'CANCELLED';
   await listeners['poll:tick']();
   assert.match(region.children[0].children[0].textContent, /Order #2: Order Cancelled/);
+  h.context.window.kopiClient.getOrder = async () => ({success:false});
+  h.get('orderSearchInput').value = 'missing';
+  await h.get('orderLookupForm').handlers.submit({ preventDefault() {} });
+  assert.equal(h.document.body.dataset.view, 'error');
+  assert.equal(h.get('displayTotalAmount').textContent, '--', 'Missing order clears old receipt');
+  assert.equal(h.get('timelineProgressBar').style['--progress'], '0');
+  assert.equal(h.get('trackerMainCard').attributes['aria-busy'], 'false');
+  h.context.window.kopiClient.getOrder = async () => { throw new Error('network'); };
+  await h.get('orderLookupForm').handlers.submit({ preventDefault() {} });
+  assert.equal(h.get('displayCurrentStatus').textContent, 'UNAVAILABLE');
+  assert.match(h.get('statusMessageBanner').innerHTML, /retry/);
 }
 console.log('Passed: phone input, status pop-ups, permissions, deduplication, polling races, dismissal, and order switching.');

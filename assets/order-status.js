@@ -70,40 +70,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const statusProgressMap = {
     PENDING: {
-      percent: '8%',
+      percent: '0%',
       message: 'Order received. Queued at the espresso bar.',
-      eta: 'Est. ~5 min',
-      color: '#C6976E',
+      eta: 'In the queue',
+      color: '#865036',
     },
     CONFIRMED: {
-      percent: '32%',
+      percent: '25%',
       message: 'Order confirmed by barista. Preparing cup & ingredients.',
-      eta: 'Est. ~4 min',
-      color: '#C6976E',
+      eta: 'Confirmed',
+      color: '#865036',
     },
     PREPARING: {
-      percent: '62%',
+      percent: '50%',
       message: 'Brewing in progress — pulling espresso shots and texturing milk.',
-      eta: 'Est. ~2 min',
-      color: '#F59E0B',
+      eta: 'Made to order',
+      color: '#8b5028',
     },
     READY: {
-      percent: '88%',
+      percent: '75%',
       message: 'Your drink is ready for pickup at the counter.',
       eta: 'Ready now',
-      color: '#10B981',
+      color: '#496239',
     },
     COMPLETED: {
       percent: '100%',
       message: 'Order picked up and completed. Enjoy your KKEOPI cup!',
       eta: 'Completed',
-      color: '#A6998A',
+      color: '#6d5544',
     },
     CANCELLED: {
       percent: '0%',
       message: 'This order was cancelled. Please check with the barista.',
       eta: 'Cancelled',
-      color: '#EF4444',
+      color: '#a33225',
     },
   };
 
@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       notificationLabel.textContent = 'Notif On';
       notificationBtn.style.opacity = '1';
       notificationBtn.style.background = 'var(--accent-kopi)';
-      notificationBtn.style.color = '#120D0A';
+      notificationBtn.style.color = '#fffaf2';
     } else if (permission === 'denied' || permission === 'unsupported') {
       notificationLabel.textContent = 'In-page alerts';
       notificationBtn.style.opacity = '0.6';
@@ -266,6 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (trackerAudioBtn) {
     trackerAudioBtn.addEventListener('click', () => {
       audioEnabled = !audioEnabled;
+      trackerAudioBtn.setAttribute('aria-pressed', String(audioEnabled));
       if (trackerAudioLabel) {
         trackerAudioLabel.textContent = audioEnabled ? 'Alert On' : 'Muted';
       }
@@ -289,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (copyLinkText) copyLinkText.textContent = 'Copy Link';
         }, 1800);
       } catch {
-        // Ignore clipboard restrictions
+        showPopup('Link could not be copied', 'Copy the address from your browser to share this order.');
       }
     });
   }
@@ -365,9 +366,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (requestedId === currentOrderId && revision === orderRevision && lookup === lookupRevision
             && res?.success && res.data) {
           receiveOrderUpdate(res.data);
+        } else if (requestedId === currentOrderId && lookup === lookupRevision) {
+          liveSyncTimestamp.textContent = 'Updates unavailable - retrying automatically';
         }
       } catch {
-        // Ignore poll error
+        if (requestedId === currentOrderId && lookup === lookupRevision) liveSyncTimestamp.textContent = 'Updates interrupted - retrying automatically';
       } finally {
         pollInFlight = false;
       }
@@ -392,6 +395,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const lookup = ++lookupRevision;
     const requestedId = currentOrderId;
     currentOrderData = null;
+    if (elapsedInterval) clearInterval(elapsedInterval);
+    document.body.dataset.orderStatus = '';
+    document.body.dataset.view = currentOrderId ? 'loading' : 'empty';
+    document.getElementById('trackerMainCard').setAttribute('aria-busy', String(Boolean(currentOrderId)));
+    displayOrderId.textContent = currentOrderId ? `#${currentOrderId}` : '#--';
+    displayCustomerName.textContent = currentOrderId ? 'Finding your order...' : 'Your next lovely cup';
+    displayPlacedTime.textContent = '--';
+    displayElapsedTimer.textContent = 'Elapsed: --';
+    displayCurrentStatus.textContent = currentOrderId ? 'LOADING' : 'WAITING';
+    displayCurrentStatus.style.color = 'var(--text-secondary)';
+    displayTotalAmount.textContent = '--';
+    displayOrderNotes.classList.add('d-none');
+    orderItemsList.textContent = currentOrderId ? 'Your order details will appear here.' : 'Select an order to see your receipt.';
+    liveSyncTimestamp.textContent = navigator.onLine ? 'Waiting for order details' : 'Offline - reconnect to check your order';
+    timelineProgressBar.style.setProperty('--progress', '0');
+    Object.values(stepElements).forEach(el => { el.classList.remove('active', 'completed'); el.removeAttribute('aria-current'); });
+    document.getElementById('brewCaption').textContent = 'Your daily ritual, made with care.';
+    copyTrackLinkBtn.disabled = printTicketBtn.disabled = true;
+    statusMessageBanner.textContent = 'Checking your order with the cafe...';
     popupRegion.replaceChildren();
     // Only load an order explicitly selected by link or order-number lookup.
     if (!currentOrderId) {
@@ -411,17 +433,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.success && res.data) {
         renderOrder(res.data);
       } else {
-        statusMessageBanner.innerHTML = `<span style="color: #EF4444;">Order #${escapeHtml(currentOrderId)} was not found.</span>`;
+        document.body.dataset.view = 'error';
+        displayCurrentStatus.textContent = 'NOT FOUND';
+        displayCustomerName.textContent = 'Find your cup';
+        statusMessageBanner.innerHTML = `<span style="color: #a33225;">Order #${escapeHtml(currentOrderId)} was not found.</span>`;
       }
     } catch (err) {
       if (lookup !== lookupRevision) return;
-      statusMessageBanner.innerHTML = `<span style="color: #EF4444;">Unable to load Order #${escapeHtml(currentOrderId)}: ${escapeHtml(err.message)}</span>`;
+      document.body.dataset.view = 'error';
+      displayCurrentStatus.textContent = navigator.onLine ? 'UNAVAILABLE' : 'OFFLINE';
+      displayCustomerName.textContent = 'Please try tracking again';
+      statusMessageBanner.innerHTML = `<span style="color: #a33225;">Unable to load Order #${escapeHtml(currentOrderId)}: Please check your connection and press Track to retry.</span>`;
+    } finally {
+      if (lookup === lookupRevision) document.getElementById('trackerMainCard').setAttribute('aria-busy', 'false');
     }
 
   }
 
   function renderOrder(order) {
     currentOrderData = order;
+    document.body.dataset.view = 'loaded';
+    copyTrackLinkBtn.disabled = printTicketBtn.disabled = false;
     displayOrderId.textContent = `#${order.id}`;
     displayCustomerName.textContent = order.customer_name || 'Guest Customer';
 
@@ -469,16 +501,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function applyOrderStatus(status, order) {
-    const config = statusProgressMap[status] || statusProgressMap.PENDING;
+    const config = statusProgressMap[status] || { percent:'0%', color:'#6d5544', message:'Waiting for a recognized order status. Please check with the cafe.', eta:'Status unavailable' };
+    document.body.dataset.orderStatus = status;
+    document.getElementById('brewCaption').textContent = ({PENDING:'A little anticipation. A lovely cup ahead.', CONFIRMED:'Your order is in good hands.', PREPARING:'A little craft in every cup.', READY:'Made for you. Ready at the counter.', COMPLETED:'Thank you for sharing your day with us.', CANCELLED:'Please speak with our team if you need a hand.'})[status] || 'Checking your order progress.';
 
     displayCurrentStatus.style.color = config.color;
     displayCurrentStatus.innerHTML = `
       <span class="status-dot"></span>
-      <span>${escapeHtml(status)}</span>
+      <span>${escapeHtml(({PENDING:'Received',CONFIRMED:'Confirmed',PREPARING:'Brewing',READY:'Ready',COMPLETED:'Picked Up',CANCELLED:'Cancelled'})[status] || status)}</span>
     `;
 
-    timelineProgressBar.style.width = config.percent;
-    timelineProgressBar.style.background = status === 'READY' ? '#10B981' : '#C6976E';
+    timelineProgressBar.style.setProperty('--progress', parseFloat(config.percent));
+    timelineProgressBar.style.background = status === 'READY' ? '#496239' : '#865036';
 
     statusMessageBanner.style.borderLeftColor = config.color;
     statusMessageBanner.innerHTML = `
@@ -495,23 +529,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       const el = stepElements[stepName];
       if (!el) return;
       el.classList.remove('active', 'completed');
+      el.removeAttribute('aria-current');
       if (status === 'CANCELLED') return;
       if (idx < currentIdx) {
         el.classList.add('completed');
       } else if (idx === currentIdx) {
         el.classList.add('active');
+        el.setAttribute('aria-current', 'step');
       }
     });
   }
 
   function celebrateReady() {
     try {
-      if (typeof confetti === 'function') {
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && typeof confetti === 'function') {
         confetti({
           particleCount: 70,
           spread: 65,
           origin: { y: 0.65 },
-          colors: ['#C6976E', '#10B981', '#F5EFE6'],
+          colors: ['#865036', '#496239', '#F5EFE6'],
         });
       }
     } catch {
@@ -519,5 +555,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  window.addEventListener('offline', () => { liveSyncTimestamp.textContent = 'Offline - showing last received update'; });
+  window.addEventListener('online', () => {
+    liveSyncTimestamp.textContent = 'Connection restored - checking for updates';
+    if (currentOrderId && !currentOrderData) loadOrder();
+  });
+  trackerAudioBtn?.setAttribute('aria-pressed', 'true');
   await loadOrder();
 });

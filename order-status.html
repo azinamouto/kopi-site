@@ -545,18 +545,20 @@
   </style>
   <link rel="stylesheet" href="assets/customer.css">
   <script src="assets/customer.js" defer></script>
+  <link rel="stylesheet" href="assets/cafe-evolution.css">
+  <script src="assets/cafe-evolution.js" defer></script>
 </head>
-<body class="customer-site">
+<body class="customer-site tracker-page">
 
   <!-- 3-Zone Top Bar -->
   <header class="tracker-topbar">
     <div class="tracker-topbar-inner">
-      <a href="index.html" class="brand-wordmark">KKEOPI</a>
+      <a href="index.html" class="brand-wordmark"><img src="assets/kkeopi_logo.jpg" alt="" width="38" height="38"> KKEOPI</a>
 
       <ul class="top-nav-links">
         <li><a href="index.html">Home</a></li>
         <li><a href="products.html">Our Menu</a></li>
-        <li><a href="order-status.html" class="active">Live Tracker</a></li>
+        <li><a href="order-status.html" class="active" aria-current="page">Live Tracker</a></li>
         <li><a href="about.html">About</a></li>
         <li><a href="gallery.html">Gallery</a></li>
       </ul>
@@ -574,8 +576,8 @@
     <!-- Header & Compact Order Lookup -->
     <div class="tracker-header-bar">
       <div>
-        <h1 class="tracker-title">Order Status</h1>
-        <p class="tracker-subtitle">Live espresso bar queue synchronized with Supabase.</p>
+        <h1 class="tracker-title">A good cup is on its way.</h1>
+        <p class="tracker-subtitle">From our espresso bar to your hands. Follow your cup here.</p>
       </div>
 
       <div class="d-flex align-items-center gap-2">
@@ -622,6 +624,21 @@
           </div>
         </div>
 
+        <div class="brew-scene" aria-hidden="true">
+          <svg viewBox="0 0 300 175" fill="none">
+            <ellipse cx="145" cy="151" rx="91" ry="10" fill="#e8d8c3"/>
+            <path d="M204 69h17c31 0 29 46-9 46h-12" stroke="#79533b" stroke-width="5"/>
+            <path d="M80 64h127l-9 58c-5 28-100 28-107 0z" fill="#f2e3ce" stroke="#79533b" stroke-width="2"/>
+            <ellipse cx="144" cy="64" rx="64" ry="13" fill="#fffaf2" stroke="#79533b" stroke-width="2"/>
+            <ellipse cx="144" cy="65" rx="53" ry="8" fill="#76503b"/>
+            <path d="M123 65q21-11 42 0q-21 10-31 0" stroke="#e4bd91" stroke-width="3"/>
+            <g class="brew-steam" stroke="#a36a49" stroke-width="2" stroke-linecap="round">
+              <path d="M120 43c-15-12 14-18 0-32"/><path d="M146 37c-15-12 14-18 0-32"/><path d="M171 43c-15-12 14-18 0-32"/>
+            </g>
+            <path d="m130 103 9 9 19-21" class="brew-check" stroke="#53683f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="brewCaption">Your daily ritual, made with care.</span>
+        </div>
         <!-- Compact 5-Stage Stepper -->
         <div class="compact-stepper">
           <div class="compact-stepper-track"></div>
@@ -654,14 +671,14 @@
         </div>
 
         <!-- Concise Status Message Banner -->
-        <div class="live-stage-note" id="statusMessageBanner">
+        <div class="live-stage-note" id="statusMessageBanner" role="status" aria-live="polite">
           <span>Enter your Order ID above or place a drink from the menu to begin live tracking.</span>
           <span class="mono-num text-secondary" id="displayEtaBadge" style="font-size: 0.72rem; white-space: nowrap;"></span>
         </div>
 
         <!-- Bottom Action Strip -->
         <div class="tracker-utility-bar">
-          <span id="liveSyncTimestamp">Live connection active</span>
+          <span id="liveSyncTimestamp">Select an order to begin</span>
           <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn-minimal" id="copyTrackLinkBtn" title="Copy direct tracking link">
               <i class="fa-regular fa-copy"></i> <span id="copyLinkText">Copy Link</span>

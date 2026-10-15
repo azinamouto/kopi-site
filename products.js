@@ -719,6 +719,15 @@ function initCheckoutAndCartSystem() {
 
             const item = extractQuickCardData(card);
             addItemToCart(item);
+            button.classList.add('just-added');
+            const originalLabel = button.dataset.restingLabel || button.innerHTML;
+            button.dataset.restingLabel = originalLabel;
+            button.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Added';
+            clearTimeout(button.addedTimer);
+            button.addedTimer = setTimeout(() => {
+                button.innerHTML = originalLabel;
+                button.classList.remove('just-added');
+            }, 1400);
             showToast(`Added ${item.qty}× ${item.title} to cart!`);
             bounceCart();
         });
