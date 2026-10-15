@@ -21,6 +21,81 @@ document.addEventListener("DOMContentLoaded", () => {
 /* ==========================================================
    1. INTERACTIVE LIQUID COFFEE CANVAS & AMBIENT ELEMENTS
 ========================================================== */
+// Only the outer wrapper moves; the illustration's own animation stays intact.
+function initHeroCoffeeParallax(hero, motion, fine) {
+    const wrapper = hero.querySelector('.cup-depth');
+    if (!wrapper) return () => {};
+    const current = [0, 0, 0, 0, 0];
+    const target = [0, 0, 0, 0, 0];
+    let frame = 0;
+    let previousTime = 0;
+    let visible = true;
+    const clamp = value => Math.max(-1, Math.min(1, value));
+    const enabled = () => motion.matches && visible && !document.hidden;
+    const render = time => {
+        frame = 0;
+        if (!enabled()) return;
+        const blend = 1 - Math.exp(-Math.min(time - (previousTime || time - 16.67), 64) / 110);
+        previousTime = time;
+        let moving = false;
+        current.forEach((value, i) => {
+            current[i] = value + (target[i] - value) * blend;
+            if (Math.abs(target[i] - current[i]) < .01) current[i] = target[i];
+            else moving = true;
+        });
+        const [x, y, rx, ry, z] = current;
+        wrapper.style.transform = `perspective(900px) translate3d(${x}px, ${y}px, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+        if (moving) frame = requestAnimationFrame(render);
+        else previousTime = 0;
+    };
+    const schedule = () => {
+        if (enabled() && !frame) frame = requestAnimationFrame(render);
+    };
+    const resetPointer = () => {
+        target.fill(0, 0, 4);
+        schedule();
+    };
+    const reset = () => {
+        cancelAnimationFrame(frame);
+        frame = previousTime = 0;
+        current.fill(0);
+        target.fill(0);
+        wrapper.style.removeProperty('transform');
+    };
+    const updateDepth = () => {
+        if (!enabled()) return;
+        const rect = hero.getBoundingClientRect();
+        target[4] = -12 * Math.max(0, Math.min(1, -rect.top / rect.height));
+        schedule();
+    };
+    hero.addEventListener('pointermove', event => {
+        if (!enabled() || !fine.matches || event.pointerType === 'touch') return;
+        const rect = hero.getBoundingClientRect();
+        const x = clamp((event.clientX - rect.left) / rect.width * 2 - 1);
+        const y = clamp((event.clientY - rect.top) / rect.height * 2 - 1);
+        target.splice(0, 4, x * 15, y * 15, -y * 5, x * 5);
+        schedule();
+    }, { passive:true });
+    hero.addEventListener('pointerleave', resetPointer);
+    hero.addEventListener('pointercancel', resetPointer);
+    window.addEventListener('blur', resetPointer);
+    window.addEventListener('scroll', updateDepth, { passive:true });
+    window.addEventListener('resize', () => { resetPointer(); updateDepth(); }, { passive:true });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) reset();
+        else updateDepth();
+    });
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(entries => {
+            visible = entries[0].isIntersecting;
+            if (visible) updateDepth();
+            else reset();
+        }).observe(hero);
+    }
+    updateDepth();
+    return reset;
+}
+
 function initLiquidCoffeeCanvas() {
     const canvas = document.getElementById("coffeeRippleCanvas");
     if (!canvas) return;
@@ -1168,3 +1243,73 @@ function initFloatingCards() {
         });
     });
 }
+
+// Homepage-only enhancement: no ordering, tracker, or admin behavior is changed.
+document.addEventListener('DOMContentLoaded', () => {
+    if (!document.body.classList.contains('kkeopi-home')) return;
+    const hero = document.querySelector('.hero');
+    const motion = matchMedia('(prefers-reduced-motion: no-preference)');
+    const fine = matchMedia('(hover: hover) and (pointer: fine)');
+    const resetScene = initHeroCoffeeParallax(hero, motion, fine);
+    const cta = hero.querySelector('.buttons a');
+    let magnetFrame = 0;
+    const resetMagnet = () => {
+        cancelAnimationFrame(magnetFrame);
+        cta.style.removeProperty('--magnet-x');
+        cta.style.removeProperty('--magnet-y');
+    };
+    cta.addEventListener('pointermove', event => {
+        if (!motion.matches || !fine.matches) return;
+        cancelAnimationFrame(magnetFrame);
+        magnetFrame = requestAnimationFrame(() => {
+            const rect = cta.getBoundingClientRect();
+            cta.style.setProperty('--magnet-x', `${(event.clientX - rect.left - rect.width / 2) * .08}px`);
+            cta.style.setProperty('--magnet-y', `${(event.clientY - rect.top - rect.height / 2) * .12}px`);
+        });
+    }, { passive:true });
+    cta.addEventListener('pointerleave', resetMagnet);
+    motion.addEventListener('change', () => { resetScene(); resetMagnet(); });
+    fine.addEventListener('change', () => { resetScene(); resetMagnet(); });
+    let heroVisible = true;
+    const pauseMotion = () => document.body.classList.toggle('motion-paused', document.hidden || !heroVisible);
+    document.addEventListener('visibilitychange', pauseMotion);
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(entries => {
+            heroVisible = entries[0].isIntersecting;
+            pauseMotion();
+        }).observe(hero);
+    }
+
+    // Extend the existing drawer with focus containment and state announcements.
+    const drawer = document.getElementById('mobileDrawer');
+    const trigger = document.getElementById('mobileMenuBtn');
+    const panel = drawer.querySelector('.mobile-drawer-content');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', 'Navigation');
+    new MutationObserver(() => {
+        const open = drawer.classList.contains('open');
+        drawer.inert = !open;
+        trigger.setAttribute('aria-expanded', String(open));
+        document.querySelector('.home-main').inert = open;
+        document.querySelector('.coffee-footer').inert = open;
+        document.querySelector('.liquid-nav').inert = open;
+        if (open) {
+            setTimeout(() => {
+                if (drawer.classList.contains('open') && !drawer.contains(document.activeElement)) drawer.querySelector('#drawerClose').focus();
+            }, motion.matches ? 360 : 0);
+        }
+        else trigger.focus();
+    }).observe(drawer, { attributes:true, attributeFilter:['class'] });
+    drawer.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const items = [...panel.querySelectorAll('a[href], button')].filter(el => el.getClientRects().length);
+        const first = items[0], last = items.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+    const desktop = matchMedia('(min-width: 921px)');
+    desktop.addEventListener('change', () => {
+        if (desktop.matches && drawer.classList.contains('open')) document.getElementById('drawerClose').click();
+    });
+});
