@@ -1,6 +1,6 @@
  <div align="center">
 
-# KKEOPI ☕
+# KKEOPI 
 
 ### 커피 한 잔, 좋은 순간.
 *A cup of coffee. A moment worth keeping.*
